@@ -5,14 +5,13 @@ PKG_VERSION:=6.8.2#软件包版本
 PKG_BUILD_DIR:= $(BUILD_DIR)/$(PKG_NAME)#真正编译当前软件包的目录
  
  
-include $(INCLUDE_DIR)/package.mk#将$(TOPDIR)/include目录下的package.mk文件中的内容导入进来
+include $(INCLUDE_DIR)/package.mk #将$(TOPDIR)/include目录下的package.mk文件中的内容导入进来
  
 define Package/sendat
-	SECTION:=wrtnode#软件包类型
-	CATEGORY:=Daocaoren#menuconfig中软件包所属的一级目录
-	SUBMENU :=CPE#menuconfig中软件包所属的二级目录
+	SECTION:=utils
+	CATEGORY:=Utilities
 	TITLE:=Sendat AT#软件包标题
-	DEPENDS:=+libpthread#运行本软件依赖的其他包
+	DEPENDS:=+libpthread
 endef
  
 define Package/sendat/description	#软件包描述
