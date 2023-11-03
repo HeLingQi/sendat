@@ -1,14 +1,8 @@
-#include "uart.h"
-#include <stdarg.h>
-#include <sys/select.h>
-#include <sys/stat.h>
-#include <ctype.h>
-#include <sys/time.h>
-#include <time.h>
-
+/*
+** Soft:Daocaoren Name:马上有房 qq:168620188
+*/
 #ifndef _UART_H_
 #define _UART_H_
-
 #include <stdio.h>
 #include <assert.h> 
 #include <sys/time.h>
@@ -18,36 +12,35 @@
 #include <termios.h>
 #include <string.h>
 #include <unistd.h>
-
-#include <iostream>
-#include <fstream>
-using namespace std;
-#include <stdio.h>
-#include <io.h>
+#include <stdarg.h>
+#include <sys/select.h>
+#include <ctype.h>
+#include <time.h>
+#include <errno.h>
+#include <getopt.h>
+#include <signal.h>
+#include <stdlib.h>
+// #include "pdu.h"
 
 
 #define MAX_PORTS	4
-
 /*this array hold information about each port we have opened */
 struct PortInfo {
     char name[16];
     int  port_fd;
 };
-
 int serial_init(int port, int spd, int databits, int parity, \
 						int stopbits, int RTSCTS, int need_line_input);
 int serial_write(int fd, void *src, int len);
 int serial_read(int fd, char *buf, int len);
 int serial_recv(int fd,char *rbuf,int rbuf_len, int timeout);
-
 //串口常用初始化接口
 #define serial_com_init(port, spd, databits, parity, stopbits)\
 		serial_init(port, spd, databits, parity, stopbits, 0, 0)
 //串口默认初始化接口
 #define serial_def_init(port, spd) serial_init(port, spd, 8, 'n', 1, 0, 1)
-
-
 #endif
+
 
 
 /*
@@ -57,9 +50,6 @@ int serial_recv(int fd,char *rbuf,int rbuf_len, int timeout);
 ** Provides an RS-232 interface that is very similar to the CVI provided
 ** interface library
 */
-
-#include "uart.h"
-
 /*this array hold information about each port we have opened */
 struct PortInfo ports[13] = 
 {
@@ -77,13 +67,10 @@ struct PortInfo ports[13] =
 	{"/dev/ttyUSB11", 0},
 	{"/dev/ttyUSB12", 0},
 };
-
-int spd_arr[] = \
-{B2000000, B1500000, B576000, B500000, B460800, B230400, B115200, B57600, B38400, B19200, B9600, B4800, B2400};
-
-int name_arr[] = \
-{ 2000000, 1500000,  576000,  500000,  460800,  230400,  115200,  57600,  38400,  19200,  9600,  4800,  2400 };
-/////////////////////////////////////////////////////////////////////////////////////////
+FILE*  pf;
+FILE*  pfi;
+int spd_arr[] = {B2000000, B1500000, B576000, B500000, B460800, B230400, B115200, B57600, B38400, B19200, B9600, B4800, B2400};
+int name_arr[] = { 2000000, 1500000,  576000,  500000,  460800,  230400,  115200,  57600,  38400,  19200,  9600,  4800,  2400 };
 /**
 *@brief  设置串口通信速率
 *@param  fd    类型 int 打开串口的文件句柄
@@ -234,11 +221,9 @@ int serial_set_line_input(int fd)
 *@param  databits,parity,stopbits,RTSCTS,分别为数据位,校验位,停止位,rtscts位
 *@param  need_line_input接收数据结尾是否加换行符?
 */
-int serial_init(int port, int spd, int databits, int parity, 
-				int stopbits, int RTSCTS, int need_line_input)
+int serial_init(int port, int spd, int databits, int parity, int stopbits, int RTSCTS, int need_line_input)
 {
     int fd;
-
 	if(port < 13)
 	{
    		// printf("open port:%d\n", port);
@@ -254,6 +239,12 @@ int serial_init(int port, int spd, int databits, int parity,
         printf("init %s failed\n", ports[port].name);
         return -1;
     }
+	pf = fdopen(port, "w");
+	pfi = fdopen(port, "r");
+	if (!pf || ! pfi)
+		fprintf(stderr,"open port failed\n");
+
+
 
     set_speed(fd, spd);
 	
@@ -345,6 +336,24 @@ int serial_recv(int fd,char *rbuf,int rbuf_len, int timeout)
 } 
 
 
+static void timeout()
+{
+	fprintf(stderr,"No response from modem.\n");
+	exit(2);
+}
+/*字符包含判断*/
+static int starts_with(const char* prefix, const char* str)
+{
+	while(*prefix)
+	{
+		if (*prefix++ != *str++)
+		{
+			return 0;
+		}
+	}
+	return 1;
+}
+/*判断是否存在*/
 int FileExist(const char* filename)
 {
     if (filename && access(filename, F_OK) == 0) {
@@ -352,52 +361,90 @@ int FileExist(const char* filename)
     }
     return 0;
 }
+/*字符转小写*/
+char* str_tolower(const char* str)
+{
+	size_t len = strlen(str);
+    char *lower = calloc(len+1, sizeof(char));
+    for (size_t i = 0; i < len; ++i) {
+        lower[i] = tolower((unsigned char)str[i]);
+    }
+	/*free(upper);*/
+	return lower;
+}
+/*字符转大写*/
+char* str_toupper(const char* str)
+{
+	size_t len = strlen(str);
+    char *upper = calloc(len+1, sizeof(char));
+    for (size_t i = 0; i < len; ++i) {
+        upper[i] = toupper((unsigned char)str[i]);
+    }
+	/*free(upper);*/
+	return upper;
+}
+/*char*转char[]*/
+char strx_tostrarr(const char* str)
+{
+	return 0;
+}
 
 
 int main(int argc, char **argv)
 {
+	if(argc<3)
+	{
+		printf("ERROR demo: sendat 2 'ATI'\n");	
+		exit(1);
+		return 0;
+	}
+	int debug = 1;
 	int port= 0;
 	sscanf(argv[1], "%d", &port);
-
 	if(FileExist(ports[port].name)==0)
 	{
 		printf("AT ERROR absent.\n");
    		return 0;
 	}
-
 	char *message= argv[2];
-	char *nty= "\r";
-    char *send= strcat(message,nty);
-	char buff[512];
-	//打开串口0，波特率为1500000
+	char *nty= "\r\n";
+	char buff[1024];
+	signal(SIGALRM,timeout);
+	alarm(2);
+	/*信号超时3秒自动退出*/
 	int fd = serial_def_init(port, 1500000);
 	if(fd < 0) return 0;
-
+	char *send= strcat(message,nty);
 	serial_write(fd,send, strlen(send));
-
- 	int retval;
-	fd_set  rset;
-    struct timeval time_out;
-	time_out.tv_sec = (time_t)(5 / 1000);
-	time_out.tv_usec = 0;
-	FD_ZERO(&rset);
-	FD_SET(fd,&rset);
-	while(1) 
-	{
+	while(1) {
 		int read = serial_read(fd, buff, sizeof(buff));
+		if(starts_with("OK", buff)) {
+			if (debug == 1)
+				printf("%s", buff);
+			close(fd);//关闭串口
+			exit(0);
+		}
+		if(starts_with("ERROR", buff)) {
+			if (debug == 1)
+				printf("%s", buff);
+			close(fd);//关闭串口
+			exit(1);
+		}
+		if(starts_with("COMMAND NOT SUPPORT", buff)) {
+			if (debug == 1)
+				printf("%s", buff);
+			close(fd);//关闭串口
+			exit(1);
+		}
+		if(starts_with("+CME ERROR", buff)) {
+			if (debug == 1)
+				printf("%s", buff);
+			close(fd);//关闭串口
+			exit(1);
+		}
 		printf("%s", buff);
-		retval = select(fd+1,&rset,NULL,NULL,&time_out);
-        if(retval < 0)
-        {
-            return -2;
-        }
-        else if(0 == retval)
-        {
-            return 0;
-        }
 	}
 
-
-	close(fd);//关闭串口
+	exit(1);
 	return 0;
 }
